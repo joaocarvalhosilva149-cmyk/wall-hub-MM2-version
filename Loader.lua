@@ -1,116 +1,133 @@
---[[ SIMPLE COIN FARMER - Círculo magnético --]]
+--[[ 
+   SIMPLE COIN FARMER MM2 - VERSÃO FUNCIONAL
+   Círculo magnético que coleta todas as moedas automaticamente
+--]]
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- Configurações
-local alcance = 40  -- Tamanho do círculo
+-- ===== CONFIGURAÇÕES =====
+local alcance = 45
 local coletando = true
+local moedasColetadas = 0
 
--- Aguardar personagem
+-- ===== AGUARDAR PERSONAGEM =====
 local char = player.Character or player.CharacterAdded:Wait()
 local hum = char:WaitForChild("Humanoid")
 local rootPart = char:WaitForChild("HumanoidRootPart")
 
--- Criar GUI simples
-local gui = Instance.new("ScreenGui")
-gui.Name = "CoinFarmer"
-gui.Parent = player:WaitForChild("PlayerGui")
+-- ===== CRIAR GUI =====
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CoinFarmer"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.ResetOnSpawn = false
 
 -- Frame principal
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 200, 0, 100)
-frame.Position = UDim2.new(0.5, -100, 0.5, -50)
-frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-frame.BackgroundTransparency = 0.05
-frame.Parent = gui
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 220, 0, 110)
+mainFrame.Position = UDim2.new(0.5, -110, 0.5, -55)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
 
-local frameCorner = Instance.new("UICorner")
-frameCorner.CornerRadius = UDim.new(0, 8)
-frameCorner.Parent = frame
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.Parent = mainFrame
 
 -- Título
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
+title.Size = UDim2.new(1, 0, 0, 35)
+title.Position = UDim2.new(0, 0, 0, 0)
 title.BackgroundTransparency = 1
 title.Text = "💰 FARM DE MOEDAS"
 title.TextColor3 = Color3.fromRGB(255, 215, 0)
 title.TextSize = 14
 title.Font = Enum.Font.GothamBold
-title.Parent = frame
+title.Parent = mainFrame
 
 -- Botão ligar/desligar
 local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0, 120, 0, 30)
-toggleBtn.Position = UDim2.new(0.5, -60, 0, 40)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 80)
-toggleBtn.Text = "⚡ ATIVADO"
+toggleBtn.Size = UDim2.new(0, 100, 0, 30)
+toggleBtn.Position = UDim2.new(0.5, -50, 0, 40)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
+toggleBtn.Text = "🔴 ATIVADO"
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.TextSize = 12
 toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.Parent = frame
+toggleBtn.Parent = mainFrame
 
 local toggleCorner = Instance.new("UICorner")
 toggleCorner.CornerRadius = UDim.new(0, 6)
 toggleCorner.Parent = toggleBtn
 
 -- Contador
-local counter = Instance.new("TextLabel")
-counter.Size = UDim2.new(1, 0, 0, 25)
-counter.Position = UDim2.new(0, 0, 0, 75)
-counter.BackgroundTransparency = 1
-counter.Text = "💰 0 moedas"
-counter.TextColor3 = Color3.fromRGB(255, 215, 0)
-counter.TextSize = 11
-counter.Font = Enum.Font.GothamBold
-counter.Parent = frame
+local counterText = Instance.new("TextLabel")
+counterText.Size = UDim2.new(1, 0, 0, 25)
+counterText.Position = UDim2.new(0, 0, 0, 75)
+counterText.BackgroundTransparency = 1
+counterText.Text = "💰 Moedas: 0"
+counterText.TextColor3 = Color3.fromRGB(255, 215, 0)
+counterText.TextSize = 11
+counterText.Font = Enum.Font.GothamBold
+counterText.Parent = mainFrame
 
--- Variáveis
-local moedasColetadas = 0
-let circlePart = nil
-
--- Função para criar o círculo
-local function criarCirculo()
-    if circlePart then circlePart:Destroy() end
+-- ===== FUNÇÃO PARA DETECTAR MOEDAS =====
+local function isCoin(objeto)
+    if not objeto or not objeto.Parent then return false end
+    if not objeto:IsA("BasePart") then return false end
     
-    circlePart = Instance.new("Part")
-    circlePart.Shape = Enum.PartType.Cylinder
-    circlePart.Size = Vector3.new(alcance * 2, 0.2, alcance * 2)
-    circlePart.Position = rootPart.Position - Vector3.new(0, 3, 0)
-    circlePart.Anchored = true
-    circlePart.CanCollide = false
-    circlePart.Transparency = 0.5
-    circlePart.Color = Color3.fromRGB(255, 215, 0)
-    circlePart.Material = Enum.Material.Neon
-    circlePart.Parent = workspace
-end
-
--- Função para detectar moedas
-local function isCoin(obj)
-    if not obj or not obj.Parent then return false end
-    if not obj:IsA("BasePart") then return false end
+    local nome = string.lower(objeto.Name or "")
     
-    local nome = string.lower(obj.Name or "")
+    -- Lista de nomes de moedas
+    local padroes = {
+        "coin", "gold", "money", "moeda", "gem", "token", 
+        "crystal", "reward", "pickup", "chest", "doubloon",
+        "bronze", "silver", "diamond", "emerald", "ruby"
+    }
     
-    -- Nomes comuns de moedas
-    local nomes = {"coin", "gold", "money", "moeda", "gem", "token", "crystal", "reward", "pickup", "chest"}
-    
-    for _, n in ipairs(nomes) do
-        if nome:find(n) then
+    for _, padrao in ipairs(padroes) do
+        if string.find(nome, padrao) then
             return true
         end
     end
     
-    -- Verificar cor
-    if obj.BrickColor == BrickColor.new("Bright yellow") or 
-       obj.BrickColor == BrickColor.new("Gold") then
-        return true
+    -- Verificar por cor amarela/dourada
+    if objeto:IsA("BasePart") and objeto.Size.Magnitude < 5 then
+        local cor = objeto.BrickColor
+        if cor == BrickColor.new("Bright yellow") or 
+           cor == BrickColor.new("Gold") or
+           cor == BrickColor.new("New Yeller") then
+            return true
+        end
     end
     
     return false
 end
 
--- Função para coletar moedas
+-- ===== CRIAR CÍRCULO =====
+local circlePart = nil
+
+local function criarCirculo()
+    if circlePart then
+        circlePart:Destroy()
+    end
+    
+    circlePart = Instance.new("Part")
+    circlePart.Name = "MagnetCircle"
+    circlePart.Shape = Enum.PartType.Cylinder
+    circlePart.Size = Vector3.new(alcance * 2, 0.2, alcance * 2)
+    circlePart.Position = rootPart.Position - Vector3.new(0, 3, 0)
+    circlePart.Anchored = true
+    circlePart.CanCollide = false
+    circlePart.Transparency = 0.4
+    circlePart.Color = Color3.fromRGB(255, 200, 0)
+    circlePart.Material = Enum.Material.Neon
+    circlePart.Parent = workspace
+end
+
+-- ===== SISTEMA DE COLETA =====
 local function coletarMoedas()
     if not coletando then return end
     if not rootPart or not rootPart.Parent then return end
@@ -118,56 +135,70 @@ local function coletarMoedas()
     local posicao = rootPart.Position
     
     -- Atualizar posição do círculo
-    if circlePart then
+    if circlePart and circlePart.Parent then
         circlePart.Position = posicao - Vector3.new(0, 3, 0)
     end
     
     -- Procurar moedas
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if isCoin(obj) and obj:IsA("BasePart") and obj.Parent ~= char then
-            local distancia = (posicao - obj.Position).Magnitude
+    for _, objeto in ipairs(workspace:GetDescendants()) do
+        if isCoin(objeto) and objeto:IsA("BasePart") then
+            -- Evitar coletar partes do próprio personagem
+            if objeto.Parent == char then continue end
+            
+            local distancia = (posicao - objeto.Position).Magnitude
             
             if distancia <= alcance then
-                -- Puxar moeda
-                local bv = Instance.new("BodyVelocity")
-                bv.MaxForce = Vector3.new(100000, 100000, 100000)
-                bv.Velocity = (posicao - obj.Position).Unit * 80
-                bv.Parent = obj
+                -- Criar força para puxar a moeda
+                local bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+                bodyVelocity.Velocity = (posicao - objeto.Position).Unit * 70
+                bodyVelocity.Parent = objeto
                 
-                -- Coletar após 0.3 segundos
+                -- Efeito visual (rastro)
+                local trail = Instance.new("Trail")
+                trail.Color = ColorSequence.new(Color3.fromRGB(255, 215, 0))
+                trail.Lifetime = 0.2
+                trail.Parent = objeto
+                
+                -- Coletar após 0.4 segundos
                 task.spawn(function()
-                    task.wait(0.3)
-                    if obj and obj.Parent then
+                    task.wait(0.4)
+                    if objeto and objeto.Parent then
                         moedasColetadas = moedasColetadas + 1
-                        counter.Text = "💰 " .. moedasColetadas .. " moedas"
-                        obj:Destroy()
+                        counterText.Text = "💰 Moedas: " .. moedasColetadas
+                        objeto:Destroy()
                     end
                 end)
                 
-                -- Limpar BodyVelocity
-                task.delay(0.5, function()
-                    if bv then bv:Destroy() end
+                -- Limpar os efeitos
+                task.delay(0.6, function()
+                    if bodyVelocity then bodyVelocity:Destroy() end
+                    if trail then trail:Destroy() end
                 end)
             end
         end
     end
 end
 
--- Botão toggle
+-- ===== BOTÃO LIGAR/DESLIGAR =====
 toggleBtn.MouseButton1Click:Connect(function()
     coletando = not coletando
     if coletando then
-        toggleBtn.Text = "⚡ ATIVADO"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 80)
-        if circlePart then circlePart.Transparency = 0.5 end
+        toggleBtn.Text = "🟢 ATIVADO"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
+        if circlePart then
+            circlePart.Transparency = 0.4
+        end
     else
-        toggleBtn.Text = "⏸️ DESATIVADO"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(100, 40, 40)
-        if circlePart then circlePart.Transparency = 1 end
+        toggleBtn.Text = "🔴 DESATIVADO"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+        if circlePart then
+            circlePart.Transparency = 1
+        end
     end
 end)
 
--- Arrastar UI
+-- ===== ARRASTAR INTERFACE =====
 local dragging = false
 local dragStart, frameStart
 
@@ -175,14 +206,19 @@ title.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
         dragStart = input.Position
-        frameStart = frame.Position
+        frameStart = mainFrame.Position
     end
 end)
 
 game:GetService("UserInputService").InputChanged:Connect(function(input)
     if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         local delta = input.Position - dragStart
-        frame.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + delta.X, frameStart.Y.Scale, frameStart.Y.Offset + delta.Y)
+        mainFrame.Position = UDim2.new(
+            frameStart.X.Scale, 
+            frameStart.X.Offset + delta.X,
+            frameStart.Y.Scale, 
+            frameStart.Y.Offset + delta.Y
+        )
     end
 end)
 
@@ -192,38 +228,44 @@ game:GetService("UserInputService").InputEnded:Connect(function(input)
     end
 end)
 
--- Loop principal
+-- ===== LOOP PRINCIPAL =====
 task.spawn(function()
-    criarCirculo()
-    
     while true do
         coletarMoedas()
-        task.wait(0.3)
+        task.wait(0.2)
     end
 end)
 
--- Recriar círculo se necessário
+-- ===== MANTER CÍRCULO =====
 task.spawn(function()
     while true do
-        task.wait(0.5)
         if rootPart and rootPart.Parent then
             if not circlePart or not circlePart.Parent then
                 criarCirculo()
             end
         end
+        task.wait(1)
     end
 end)
 
--- Atualizar quando o personagem renascer
-player.CharacterAdded:Connect(function(newChar)
-    char = newChar
+-- ===== RECONECTAR QUANDO MORRER =====
+player.CharacterAdded:Connect(function(novoChar)
+    task.wait(0.5)
+    char = novoChar
     hum = char:WaitForChild("Humanoid")
     rootPart = char:WaitForChild("HumanoidRootPart")
-    task.wait(0.5)
     criarCirculo()
-    print("🔄 Personagem recarregado!")
+    print("✅ Personagem recarregado - Continuando farm!")
 end)
 
-print("✅ Script carregado - Círculo magnético ativado!")
-print("💡 Círculo dourado ao redor do personagem")
-print("💰 Todas as moedas dentro do círculo serão puxadas!")
+-- ===== INICIAR =====
+criarCirculo()
+
+-- Mensagem de confirmação
+print("========================================")
+print("💰 SIMPLE COIN FARMER - CARREGADO!")
+print("========================================")
+print("✅ Círculo dourado ao redor do personagem")
+print("✅ Coletando todas as moedas automaticamente")
+print("✅ Use o botão na tela para ligar/desligar")
+print("========================================")
